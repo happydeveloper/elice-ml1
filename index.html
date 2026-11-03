@@ -1,59 +1,369 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
-
-    // the link to your model provided by Teachable Machine export panel
-    const URL = "./my_model/";
-
-    let model, webcam, labelContainer, maxPredictions;
-
-    // Load the image model and setup the webcam
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(500, 500, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
-
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f0e8">
+    <title>책갈피 | 책 판별기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+            --paper: #f2f0e8;
+            --ink: #1d2724;
+            --muted: #737973;
+            --line: #d7d8ce;
+            --green: #245c4b;
+            --lime: #d1e766;
+            --coral: #e37756;
+            --white: #fbfaf6;
+            font-family: "DM Sans", "Noto Serif KR", sans-serif;
+            color: var(--ink);
+            background: var(--paper);
         }
-    }
 
-    async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-width: 320px; }
+        button, a { font: inherit; }
+        a { color: inherit; }
 
-    // run the webcam image through the image model
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
+        .shell { max-width: 1180px; margin: 0 auto; padding: 0 42px; }
+        .topbar {
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--line);
         }
-    }
-</script>
+        .brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 700; }
+        .brand-mark {
+            width: 27px;
+            height: 27px;
+            display: grid;
+            place-items: center;
+            background: var(--green);
+            color: var(--lime);
+            font-family: "DM Mono", monospace;
+            font-size: 14px;
+        }
+        .top-note { color: var(--muted); font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.08em; }
+
+        main { padding: 54px 0 72px; }
+        .intro { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 31px; }
+        .eyebrow { margin: 0 0 12px; color: var(--green); font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+        h1 { margin: 0; font-family: "Noto Serif KR", serif; font-size: clamp(30px, 4vw, 46px); font-weight: 500; line-height: 1.2; }
+        .intro-copy { max-width: 290px; margin: 0 0 4px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+
+        .workspace { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(310px, 0.92fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+        .camera-panel { min-width: 0; padding: 22px 26px 26px 0; border-right: 1px solid var(--line); }
+        .panel-heading { display: flex; align-items: center; justify-content: space-between; min-height: 24px; margin-bottom: 15px; }
+        .panel-heading h2, .shelf-heading h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; }
+        .status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-family: "DM Mono", monospace; font-size: 10px; }
+        .status::before { width: 7px; height: 7px; border-radius: 50%; background: #a4aaa2; content: ""; }
+        .status[data-state="live"]::before { background: #5a9c5e; box-shadow: 0 0 0 3px #5a9c5e22; }
+        .camera-stage { position: relative; display: grid; min-height: 330px; aspect-ratio: 1.34; place-items: center; overflow: hidden; background: #dfe2d7; }
+        .camera-stage::before, .camera-stage::after { position: absolute; z-index: 1; width: 21px; height: 21px; border-color: #69756c; border-style: solid; content: ""; pointer-events: none; }
+        .camera-stage::before { top: 14px; left: 14px; border-width: 1px 0 0 1px; }
+        .camera-stage::after { right: 14px; bottom: 14px; border-width: 0 1px 1px 0; }
+        #webcam-container { position: absolute; inset: 0; display: grid; place-items: center; }
+        #webcam-container canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .camera-placeholder { max-width: 245px; padding: 20px; color: #647068; text-align: center; }
+        .camera-symbol { display: grid; width: 54px; height: 54px; place-items: center; margin: 0 auto 15px; border: 1px solid #aeb8ac; border-radius: 50%; font-size: 21px; }
+        .camera-placeholder p { margin: 0; font-family: "Noto Serif KR", serif; font-size: 16px; }
+        .camera-placeholder small { display: block; margin-top: 7px; color: #788078; font-size: 11px; line-height: 1.5; }
+        .camera-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 15px; }
+        .camera-hint { color: var(--muted); font-size: 11px; }
+        .action-button { min-width: 118px; min-height: 42px; padding: 0 17px; border: 0; background: var(--green); color: white; cursor: pointer; font-size: 12px; font-weight: 600; transition: background 160ms ease, transform 160ms ease; }
+        .action-button:hover:not(:disabled) { transform: translateY(-1px); background: #194739; }
+        .action-button:disabled { cursor: wait; opacity: 0.6; }
+        .action-button.stop { border: 1px solid var(--line); background: transparent; color: var(--ink); }
+        .action-button.stop:hover { background: #e6e5dc; }
+
+        .result-panel { min-width: 0; padding: 22px 0 26px 28px; }
+        .result-kicker { margin: 30px 0 7px; color: var(--muted); font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 0.1em; }
+        .result-title { min-height: 76px; margin: 0; font-family: "Noto Serif KR", serif; font-size: 27px; font-weight: 500; line-height: 1.4; }
+        .result-author { min-height: 20px; margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+        .result-cover-row { display: flex; align-items: center; gap: 19px; margin: 22px 0 25px; }
+        .book-cover { position: relative; display: flex; flex: 0 0 106px; width: 106px; height: 146px; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 13px 12px; box-shadow: 4px 5px 0 #18231e20; }
+        .book-cover::after { position: absolute; top: 0; bottom: 0; left: 7px; width: 1px; background: #ffffff55; content: ""; }
+        .book-cover.heritage { background: var(--coral); color: #fff7e8; }
+        .book-cover.claude { background: #293d37; color: #e9f2ba; }
+        .cover-kicker { font-family: "DM Mono", monospace; font-size: 7px; letter-spacing: 0.12em; }
+        .cover-title { position: relative; z-index: 1; font-family: "Noto Serif KR", serif; font-size: 16px; font-weight: 600; line-height: 1.45; }
+        .cover-title small { display: block; margin-top: 4px; font-family: "DM Sans", sans-serif; font-size: 8px; font-weight: 500; }
+        .cover-mark { position: absolute; right: -15px; bottom: 27px; width: 76px; height: 76px; border: 1px solid #fff8; border-radius: 50%; }
+        .claude .cover-mark { right: 13px; bottom: 28px; width: 48px; height: 48px; border: 1px solid #d1e766; border-radius: 0; transform: rotate(45deg); }
+        .cover-author { font-size: 8px; }
+        .result-summary { margin: 0; color: #525c55; font-size: 12px; line-height: 1.8; }
+        .confidence { margin-top: 25px; }
+        .confidence-head { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-family: "DM Mono", monospace; font-size: 10px; }
+        .meter { height: 4px; background: #d9dbd1; }
+        .meter-fill { width: 0; height: 100%; background: var(--green); transition: width 280ms ease; }
+        .catalog-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 19px; color: var(--green); font-size: 11px; font-weight: 600; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+        .catalog-link::after { content: "↗"; font-size: 14px; }
+        .error-message { min-height: 17px; margin: 10px 0 0; color: #a14735; font-size: 11px; line-height: 1.5; }
+
+        .shelf { padding-top: 29px; }
+        .shelf-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
+        .shelf-heading span { color: var(--muted); font-family: "DM Mono", monospace; font-size: 10px; }
+        .book-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .book-item { display: flex; min-width: 0; align-items: center; gap: 15px; padding: 14px; border: 1px solid var(--line); background: #f7f6f0; text-decoration: none; transition: border-color 160ms ease, background 160ms ease; }
+        .book-item:hover { border-color: var(--green); background: var(--white); }
+        .book-item .book-cover { flex-basis: 62px; width: 62px; height: 84px; padding: 8px 7px; box-shadow: 2px 3px 0 #18231e20; }
+        .book-item .cover-kicker { font-size: 5px; }
+        .book-item .cover-title { font-size: 9px; }
+        .book-item .cover-title small { font-size: 6px; }
+        .book-item .cover-author { font-size: 6px; }
+        .book-item .cover-mark { right: -19px; bottom: 13px; width: 48px; height: 48px; }
+        .book-item .claude .cover-mark { right: 8px; bottom: 17px; width: 29px; height: 29px; }
+        .book-name { min-width: 0; }
+        .book-name strong { display: block; overflow: hidden; font-family: "Noto Serif KR", serif; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+        .book-name small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+        footer { display: flex; justify-content: space-between; gap: 16px; padding: 20px 0 26px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+        footer span:last-child { font-family: "DM Mono", monospace; }
+
+        @media (max-width: 760px) {
+            .shell { padding-right: 22px; padding-left: 22px; }
+            main { padding-top: 38px; }
+            .intro { align-items: start; flex-direction: column; gap: 13px; }
+            .intro-copy { max-width: 410px; }
+            .workspace { grid-template-columns: 1fr; }
+            .camera-panel { padding-right: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+            .result-panel { padding: 22px 0 26px; }
+            .result-kicker { margin-top: 16px; }
+            .camera-stage { min-height: 250px; }
+        }
+        @media (max-width: 480px) {
+            .shell { padding-right: 17px; padding-left: 17px; }
+            .topbar { height: 62px; }
+            .top-note { font-size: 9px; }
+            h1 { font-size: 31px; }
+            .camera-stage { min-height: 225px; }
+            .camera-hint { max-width: 150px; font-size: 10px; line-height: 1.5; }
+            .action-button { min-width: 108px; padding: 0 12px; }
+            .book-list { grid-template-columns: 1fr; }
+            footer { font-size: 9px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header class="topbar">
+            <div class="brand"><span class="brand-mark" aria-hidden="true">b.</span><span>책갈피</span></div>
+            <span class="top-note">OBJECT RECOGNITION / 01</span>
+        </header>
+
+        <main>
+            <section class="intro" aria-labelledby="page-title">
+                <div>
+                    <p class="eyebrow">A LITTLE BOOK FINDER</p>
+                    <h1 id="page-title">책을 비추면,<br>이름을 찾아드려요.</h1>
+                </div>
+                <p class="intro-copy">책 표지를 카메라에 보여주세요.<br>학습된 두 권 중 어떤 책인지 찾아볼게요.</p>
+            </section>
+
+            <section class="workspace" aria-label="책 판별기">
+                <div class="camera-panel">
+                    <div class="panel-heading">
+                        <h2>카메라 뷰</h2>
+                        <span class="status" id="camera-status" data-state="idle">대기 중</span>
+                    </div>
+                    <div class="camera-stage">
+                        <div id="webcam-container" aria-label="웹캠 영상"></div>
+                        <div class="camera-placeholder" id="camera-placeholder">
+                            <span class="camera-symbol" aria-hidden="true">◎</span>
+                            <p>책 표지를 화면 안에 맞춰주세요</p>
+                            <small>카메라 사용 권한이 필요합니다</small>
+                        </div>
+                    </div>
+                    <div class="camera-controls">
+                        <span class="camera-hint">밝은 곳에서 표지 전체를 비춰주세요</span>
+                        <button class="action-button" id="camera-button" type="button">카메라 시작</button>
+                    </div>
+                </div>
+
+                <div class="result-panel" aria-live="polite">
+                    <div class="panel-heading">
+                        <h2>찾은 책</h2>
+                        <span class="top-note">LIVE RESULT</span>
+                    </div>
+                    <p class="result-kicker" id="result-kicker">아직 판별 전이에요</p>
+                    <h2 class="result-title" id="result-title">책을 비춰주세요</h2>
+                    <p class="result-author" id="result-author">카메라를 시작하면 결과가 여기에 보여요.</p>
+                    <div class="result-cover-row">
+                        <div class="book-cover heritage" id="result-cover" aria-hidden="true">
+                            <span class="cover-kicker">BOOK NO. 01</span>
+                            <span class="cover-title">나의<br>문화유산<br>답사기<small>한국의 아름다움을 찾아서</small></span>
+                            <span class="cover-mark"></span>
+                            <span class="cover-author">유홍준</span>
+                        </div>
+                        <p class="result-summary" id="result-summary">우리의 문화유산을 따라 걷는 답사기와<br>AI 코딩을 돕는 실전 가이드 중에서 찾아요.</p>
+                    </div>
+                    <div class="confidence">
+                        <div class="confidence-head"><span>모델 확신도</span><span id="confidence-value">--%</span></div>
+                        <div class="meter" role="progressbar" aria-label="모델 확신도" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="confidence-meter"><div class="meter-fill" id="confidence-fill"></div></div>
+                    </div>
+                    <a class="catalog-link" id="catalog-link" href="https://www.yes24.com/Product/Search?domain=ALL&amp;query=%EB%82%98%EC%9D%98%20%EB%AC%B8%ED%99%94%EC%9C%A0%EC%82%B0%EB%8B%B5%EC%82%AC%EA%B8%B0" target="_blank" rel="noopener noreferrer">YES24에서 책 찾기</a>
+                    <p class="error-message" id="error-message" role="status"></p>
+                </div>
+            </section>
+
+            <section class="shelf" aria-labelledby="shelf-title">
+                <div class="shelf-heading">
+                    <h2 id="shelf-title">학습한 책</h2>
+                    <span>02 TITLES</span>
+                </div>
+                <div class="book-list">
+                    <a class="book-item" href="https://www.yes24.com/Product/Search?domain=ALL&amp;query=%EB%82%98%EC%9D%98%20%EB%AC%B8%ED%99%94%EC%9C%A0%EC%82%B0%EB%8B%B5%EC%82%AC%EA%B8%B0" target="_blank" rel="noopener noreferrer" aria-label="나의 문화유산답사기, YES24 검색 결과 열기">
+                        <span class="book-cover heritage" aria-hidden="true"><span class="cover-kicker">BOOK NO. 01</span><span class="cover-title">나의<br>문화유산<br>답사기<small>한국의 아름다움을 찾아서</small></span><span class="cover-mark"></span><span class="cover-author">유홍준</span></span>
+                        <span class="book-name"><strong>나의 문화유산답사기</strong><small>유홍준 · 인문/역사</small></span>
+                    </a>
+                    <a class="book-item" href="https://www.yes24.com/Product/Search?domain=ALL&amp;query=%ED%81%B4%EB%A1%9C%EB%93%9C%20%EC%BD%94%EB%93%9C" target="_blank" rel="noopener noreferrer" aria-label="클로드 코드 책, YES24 검색 결과 열기">
+                        <span class="book-cover claude" aria-hidden="true"><span class="cover-kicker">FIELD GUIDE / 02</span><span class="cover-title">클로드<br>코드<small>AI CODING GUIDE</small></span><span class="cover-mark"></span><span class="cover-author">CLAUDE CODE</span></span>
+                        <span class="book-name"><strong>클로드 코드</strong><small>AI 코딩 실전 가이드</small></span>
+                    </a>
+                </div>
+            </section>
+        </main>
+
+        <footer><span>모델이 학습한 두 종류의 책을 판별합니다.</span><span>TEACHABLE MACHINE</span></footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script>
+        const MODEL_URL = "./my_model/";
+        const bookDetails = {
+            heritage: {
+                title: "나의 문화유산답사기",
+                author: "유홍준",
+                kicker: "문화유산 답사기",
+                summary: "우리 땅 곳곳의 문화유산과 그에 얽힌 이야기를 따라가는 답사기예요.",
+                searchUrl: "https://www.yes24.com/Product/Search?domain=ALL&query=%EB%82%98%EC%9D%98%20%EB%AC%B8%ED%99%94%EC%9C%A0%EC%82%B0%EB%8B%B5%EC%82%AC%EA%B8%B0",
+                coverClass: "heritage"
+            },
+            claude: {
+                title: "클로드 코드",
+                author: "AI 코딩 실전 가이드",
+                kicker: "AI 코딩 가이드",
+                summary: "Claude Code를 활용한 AI 코딩을 다루는 책이에요.",
+                searchUrl: "https://www.yes24.com/Product/Search?domain=ALL&query=%ED%81%B4%EB%A1%9C%EB%93%9C%20%EC%BD%94%EB%93%9C",
+                coverClass: "claude"
+            }
+        };
+
+        let model;
+        let webcam;
+        let running = false;
+        let predicting = false;
+
+        const cameraButton = document.getElementById("camera-button");
+        const cameraStatus = document.getElementById("camera-status");
+        const cameraPlaceholder = document.getElementById("camera-placeholder");
+        const webcamContainer = document.getElementById("webcam-container");
+        const errorMessage = document.getElementById("error-message");
+
+        function identifyBook(className) {
+            const label = className.replace(/\s/g, "").toLowerCase();
+            if (label.includes("문화유산답사기")) return bookDetails.heritage;
+            if (label.includes("클로드코드")) return bookDetails.claude;
+            return null;
+        }
+
+        function showResult(predictions) {
+            const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+            const prediction = sorted[0];
+            const book = identifyBook(prediction.className);
+            const confidence = Math.round(prediction.probability * 100);
+
+            document.getElementById("result-kicker").textContent = book ? book.kicker : prediction.className;
+            document.getElementById("result-title").textContent = book ? book.title : "학습한 책이 아니에요";
+            document.getElementById("result-author").textContent = book ? book.author : "등록된 책 두 권을 비춰주세요.";
+            document.getElementById("result-summary").textContent = book ? book.summary : "";
+            document.getElementById("confidence-value").textContent = `${confidence}%`;
+            document.getElementById("confidence-fill").style.width = `${confidence}%`;
+            document.getElementById("confidence-meter").setAttribute("aria-valuenow", String(confidence));
+
+            const resultCover = document.getElementById("result-cover");
+            resultCover.className = `book-cover ${book ? book.coverClass : "heritage"}`;
+            resultCover.innerHTML = book
+                ? `<span class="cover-kicker">${book.coverClass === "heritage" ? "BOOK NO. 01" : "FIELD GUIDE / 02"}</span><span class="cover-title">${book.coverClass === "heritage" ? "나의<br>문화유산<br>답사기<small>한국의 아름다움을 찾아서</small>" : "클로드<br>코드<small>AI CODING GUIDE</small>"}</span><span class="cover-mark"></span><span class="cover-author">${book.coverClass === "heritage" ? "유홍준" : "CLAUDE CODE"}</span>`
+                : "책을 찾지 못했어요";
+
+            const catalogLink = document.getElementById("catalog-link");
+            catalogLink.hidden = !book;
+            if (book) catalogLink.href = book.searchUrl;
+        }
+
+        async function predict() {
+            if (!running || predicting) return;
+            predicting = true;
+            try {
+                webcam.update();
+                const predictions = await model.predict(webcam.canvas);
+                showResult(predictions);
+            } catch (error) {
+                errorMessage.textContent = "이미지를 분석하지 못했어요. 카메라를 다시 시작해 주세요.";
+                await stopCamera();
+            } finally {
+                predicting = false;
+            }
+            if (running) window.requestAnimationFrame(predict);
+        }
+
+        async function startCamera() {
+            cameraButton.disabled = true;
+            errorMessage.textContent = "";
+            cameraStatus.textContent = "모델 불러오는 중";
+            try {
+                if (!model) {
+                    model = await tmImage.load(`${MODEL_URL}model.json`, `${MODEL_URL}metadata.json`);
+                }
+                webcam = new tmImage.Webcam(500, 500, true);
+                await webcam.setup();
+                await webcam.play();
+                webcamContainer.replaceChildren(webcam.canvas);
+                cameraPlaceholder.hidden = true;
+                running = true;
+                cameraButton.textContent = "카메라 중지";
+                cameraButton.classList.add("stop");
+                cameraStatus.textContent = "판별 중";
+                cameraStatus.dataset.state = "live";
+                window.requestAnimationFrame(predict);
+            } catch (error) {
+                errorMessage.textContent = error.name === "NotAllowedError"
+                    ? "카메라 권한을 허용한 뒤 다시 시작해 주세요."
+                    : "카메라 또는 모델을 불러오지 못했어요. 웹서버에서 다시 열어주세요.";
+                cameraStatus.textContent = "시작할 수 없음";
+                if (webcam) webcam.stop();
+                webcam = null;
+            } finally {
+                cameraButton.disabled = false;
+            }
+        }
+
+        async function stopCamera() {
+            running = false;
+            if (webcam) webcam.stop();
+            webcam = null;
+            webcamContainer.replaceChildren();
+            cameraPlaceholder.hidden = false;
+            cameraButton.textContent = "카메라 시작";
+            cameraButton.classList.remove("stop");
+            cameraStatus.textContent = "대기 중";
+            cameraStatus.dataset.state = "idle";
+        }
+
+        cameraButton.addEventListener("click", () => {
+            if (running) stopCamera();
+            else startCamera();
+        });
+    </script>
+</body>
+</html>
